@@ -4,7 +4,7 @@ RUN echo "mysql-server mysql-server/root_password password root" | debconf-set-s
 RUN echo "mysql-server mysql-server/root_password_again password root" | debconf-set-selections
 
 RUN apt-get update &&\
-	apt-get -y install mysql-server-5.7 &&\
+	apt-get install -y mysql-server-5.7 &&\
 	mkdir -p /var/lib/mysql &&\
 	mkdir -p /var/run/mysqld &&\
 	mkdir -p /var/log/mysql &&\
@@ -20,9 +20,9 @@ RUN sed -i -e "$ a [client]\n\n[mysql]\n\n[mysqld]" /etc/mysql/my.cnf &&\
 
 VOLUME /var/lib/mysql
 
-COPY ./entrypoint.sh /root/entrypoint.sh
-RUN chmod +x /root/entrypoint.sh
+COPY ./entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 3306
 
-ENTRYPOINT ["/root/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
