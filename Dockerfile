@@ -5,14 +5,8 @@ RUN echo "mysql-server mysql-server/root_password_again password root" | debconf
 
 RUN apt-get update && \
 	apt-get install -y mysql-server-5.7 && \
-\
-	mkdir -p /var/lib/mysql \
-			 /var/run/mysqld \
-			 /var/log/mysql && \
-\
-	chown -R mysql:mysql /var/lib/mysql \
-						 /var/run/mysqld \
-						 /var/log/mysql
+	mkdir -p /var/lib/mysql /var/run/mysqld /var/log/mysql && \
+	chown -R mysql:mysql /var/lib/mysql /var/run/mysqld /var/log/mysql
 
 # UTF-8 and bind-address
 RUN sed -i -e "$ a [client]\n\n[mysql]\n\n[mysqld]" /etc/mysql/my.cnf && \
