@@ -1,6 +1,6 @@
 ## Build
 
-`docker build -t mysql-5.7:latest'
+`docker build -t mysql-5.7:latest`
 
 ## Environment Variables
 
