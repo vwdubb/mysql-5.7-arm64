@@ -3,9 +3,6 @@
 set -e
 
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-"root"}
-# MYSQL_USER=${MYSQL_USER:-""}
-# MYSQL_PASSWORD=${MYSQL_PASSWORD:-""}
-# MYSQL_DATABASE=${MYSQL_DATABASE:-""}
 
 echo "[i] Setting up new power user credentials."
 service mysql start
