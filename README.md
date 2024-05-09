@@ -1,6 +1,6 @@
 ## Docker Hub
 
-https://hub.docker.com/vwdubb/mysql-5.7-arm
+https://hub.docker.com/r/vwdubb/mysql-5.7-arm
 
 ## Build
 
