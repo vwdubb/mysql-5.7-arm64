@@ -32,6 +32,18 @@ else
 	fi
 fi
 
+if [ -d "/docker-entrypoint-initdb.d" ] && [ "$(ls -A /docker-entrypoint-initdb.d)" ]; then
+    echo "[i] Processing initialization files in /docker-entrypoint-initdb.d:"
+
+    for sql_file in /docker-entrypoint-initdb.d/*.sql; do
+        echo "[i] Processing file $sql_file"
+        mysql --user=root --password=$MYSQL_ROOT_PASSWORD < $sql_file
+        echo "[i] Done processing $sql_file"
+    done
+
+    echo "[i] Finished processing initialization files."
+fi
+
 service mysql stop
 
 exec "mysqld_safe"
