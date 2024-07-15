@@ -8,7 +8,7 @@ echo "[i] Setting up new power user credentials."
 service mysql start
 
 echo "[i] Setting root new password."
-mysql --user=root --password=root -e "UPDATE mysql.user SET authentication_string=password('$MYSQL_ROOT_PASSWORD') WHERE user='root'; FLUSH PRIVILEGES;"
+mysql --user=root --password=root -e "UPDATE mysql.user SET authentication_string=password('$MYSQL_ROOT_PASSWORD') WHERE user='root'; FLUSH PRIVILEGES;" 2>/dev/null || true
 
 echo "[i] Setting root remote password."
 mysql --user=root --password=$MYSQL_ROOT_PASSWORD -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD' WITH GRANT OPTION; FLUSH PRIVILEGES;"
