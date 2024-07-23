@@ -46,4 +46,4 @@ fi
 
 service mysql stop
 
-exec "mysqld_safe"
+exec mysqld "$@"
