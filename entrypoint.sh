@@ -3,47 +3,57 @@
 set -e
 
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-"root"}
+DATADIR="/var/lib/mysql"
 
-echo "[i] Setting up new power user credentials."
-service mysql start
+# Only run setup on first start (data dir not yet initialized)
+if [ ! -d "$DATADIR/mysql" ]; then
+	echo "[i] Initializing data directory..."
+	mysqld --initialize-insecure --user=mysql --datadir="$DATADIR"
 
-echo "[i] Setting root new password."
-mysql --user=root --password=root -e "UPDATE mysql.user SET authentication_string=password('$MYSQL_ROOT_PASSWORD') WHERE user='root'; FLUSH PRIVILEGES;" 2>/dev/null || true
+	echo "[i] Starting temporary server for initial setup..."
+	mysqld --user=mysql --datadir="$DATADIR" --skip-networking &
+	pid="$!"
 
-echo "[i] Setting root remote password."
-mysql --user=root --password=$MYSQL_ROOT_PASSWORD -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+	for i in $(seq 1 30); do
+		if mysqladmin ping --silent 2>/dev/null; then
+			break
+		fi
+		sleep 1
+	done
 
-if [ -n "$MYSQL_DATABASE" ]; then
-	echo "[i] Creating datebase: $MYSQL_DATABASE"
-	mysql --user=root --password=$MYSQL_ROOT_PASSWORD -e "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` CHARACTER SET utf8 COLLATE utf8_general_ci; FLUSH PRIVILEGES;"
+	echo "[i] Setting root password."
+	mysql --user=root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD'; FLUSH PRIVILEGES;"
+
+	echo "[i] Granting root remote access."
+	mysql --user=root --password="$MYSQL_ROOT_PASSWORD" -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+
+	if [ -n "$MYSQL_DATABASE" ]; then
+		echo "[i] Creating database: $MYSQL_DATABASE"
+		mysql --user=root --password="$MYSQL_ROOT_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` CHARACTER SET utf8 COLLATE utf8_general_ci;"
+	fi
 
 	if [ -n "$MYSQL_USER" ] && [ -n "$MYSQL_PASSWORD" ]; then
-		echo "[i] Create new User: $MYSQL_USER with password $MYSQL_PASSWORD for new database $MYSQL_DATABASE."
-		mysql --user=root --password=$MYSQL_ROOT_PASSWORD -e "GRANT ALL PRIVILEGES ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD' WITH GRANT OPTION; FLUSH PRIVILEGES;"
-	else
-		echo "[i] No need to create new User."
+		echo "[i] Creating user: $MYSQL_USER"
+		if [ -n "$MYSQL_DATABASE" ]; then
+			mysql --user=root --password="$MYSQL_ROOT_PASSWORD" -e "GRANT ALL PRIVILEGES ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+		else
+			mysql --user=root --password="$MYSQL_ROOT_PASSWORD" -e "GRANT ALL PRIVILEGES ON *.* TO '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+		fi
 	fi
-else
-	if [ -n "$MYSQL_USER" ] && [ -n "$MYSQL_PASSWORD" ]; then
-		echo "[i] Create new User $MYSQL_USER with password $MYSQL_PASSWORD"
-		mysql --user=root --password=$MYSQL_ROOT_PASSWORD -e "GRANT ALL PRIVILEGES ON *.* TO '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD' WITH GRANT OPTION; FLUSH PRIVILEGES;"
-	else
-		echo "[i] No need to create a new User."
+
+	if [ -d "/docker-entrypoint-initdb.d" ] && [ "$(ls -A /docker-entrypoint-initdb.d 2>/dev/null)" ]; then
+		echo "[i] Running init files from /docker-entrypoint-initdb.d:"
+		for f in /docker-entrypoint-initdb.d/*.sql; do
+			echo "[i] Running $f"
+			mysql --user=root --password="$MYSQL_ROOT_PASSWORD" < "$f"
+		done
 	fi
+
+	echo "[i] Stopping temporary server..."
+	mysqladmin --user=root --password="$MYSQL_ROOT_PASSWORD" shutdown
+	wait "$pid"
+
+	echo "[i] Initial setup complete."
 fi
 
-if [ -d "/docker-entrypoint-initdb.d" ] && [ "$(ls -A /docker-entrypoint-initdb.d)" ]; then
-    echo "[i] Processing initialization files in /docker-entrypoint-initdb.d:"
-
-    for sql_file in /docker-entrypoint-initdb.d/*.sql; do
-        echo "[i] Processing file $sql_file"
-        mysql --user=root --password=$MYSQL_ROOT_PASSWORD < $sql_file
-        echo "[i] Done processing $sql_file"
-    done
-
-    echo "[i] Finished processing initialization files."
-fi
-
-service mysql stop
-
-exec mysqld "$@"
+exec mysqld --user=mysql "$@"
