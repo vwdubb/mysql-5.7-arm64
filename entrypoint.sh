@@ -5,9 +5,13 @@ set -e
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-"root"}
 DATADIR="/var/lib/mysql"
 
-# Only run setup on first start (data dir not yet initialized)
-if [ ! -d "$DATADIR/mysql" ]; then
+INIT_MARKER="$DATADIR/.initialized"
+
+# Only run setup if we haven't completed initialization before
+if [ ! -f "$INIT_MARKER" ]; then
 	echo "[i] Initializing data directory..."
+	# Clean any leftover files from a failed init (e.g. lost+found, partial data)
+	find "$DATADIR" -mindepth 1 -delete 2>/dev/null || true
 	mysqld --initialize-insecure --user=mysql --datadir="$DATADIR"
 
 	echo "[i] Starting temporary server for initial setup..."
@@ -53,7 +57,11 @@ if [ ! -d "$DATADIR/mysql" ]; then
 	mysqladmin --user=root --password="$MYSQL_ROOT_PASSWORD" shutdown
 	wait "$pid"
 
+	# Mark initialization as complete — only written after full success
+	touch "$INIT_MARKER"
 	echo "[i] Initial setup complete."
+else
+	echo "[i] Data directory already initialized, skipping setup."
 fi
 
 exec mysqld --user=mysql "$@"
